@@ -1,0 +1,13 @@
+{
+  "name": "つんどくタイムライン",
+  "short_name": "つんどくTL",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d9bf0",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>つんどくタイムライン</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1d9bf0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="つんどくTL">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+:root{
+  --bg:#fff;--text:#0f1419;--sub:#536471;--border:#eff3f4;
+  --blue:#1d9bf0;--pink:#f91880;--hover:#f7f9f9;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+  background:var(--bg);color:var(--text);
+  max-width:600px;margin:0 auto;
+  padding-bottom:calc(64px + env(safe-area-inset-bottom));
+  border-left:1px solid var(--border);border-right:1px solid var(--border);
+  min-height:100vh;
+}
+/* header */
+.top{
+  position:sticky;top:0;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);z-index:20;
+  padding:calc(env(safe-area-inset-top) + 10px) 16px 0;
+}
+.top .row{display:flex;align-items:center;justify-content:space-between;padding-bottom:8px}
+.top h1{font-size:17px;font-weight:800}
+.top .prog{font-size:12px;color:var(--sub)}
+.pbar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:8px}
+.pbar>div{height:100%;background:var(--blue);transition:width .5s}
+select.booklet-sel{
+  border:none;background:transparent;font-size:13px;color:var(--blue);font-weight:700;
+  font-family:inherit;max-width:55%;
+}
+
+/* refresh */
+.refresh-wrap{padding:12px 16px;border-bottom:1px solid var(--border)}
+.refresh-btn{
+  width:100%;background:var(--blue);color:#fff;border:none;border-radius:9999px;
+  padding:12px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;
+}
+.refresh-btn:active{opacity:.8}
+.refresh-btn:disabled{background:#8ecdf8}
+
+/* posts */
+.post{
+  display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);
+  animation:none;
+}
+.post.new{animation:slidein .5s ease}
+@keyframes slidein{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+.avatar{
+  width:44px;height:44px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:800;font-size:18px;
+}
+.post .body{flex:1;min-width:0}
+.post .head{font-size:14px;margin-bottom:2px}
+.post .head b{font-weight:800}
+.post .head span{color:var(--sub);font-weight:400}
+.post .text{font-size:16px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.post .actions{display:flex;gap:48px;margin-top:10px;color:var(--sub)}
+.act{
+  display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;
+  background:none;border:none;color:var(--sub);font-family:inherit;padding:0;
+}
+.act svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8}
+.act.liked{color:var(--pink)}
+.act.liked svg{fill:var(--pink);stroke:var(--pink)}
+.done-post{
+  text-align:center;padding:28px 16px;border-bottom:1px solid var(--border);
+  font-size:14px;color:var(--sub);line-height:1.9;animation:slidein .5s ease;
+}
+.done-post b{color:var(--text);font-size:16px}
+.empty{
+  text-align:center;padding:56px 24px;color:var(--sub);font-size:14px;line-height:2;
+}
+.empty b{font-size:17px;color:var(--text);display:block;margin-bottom:8px}
+
+/* tabs */
+.tabbar{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:600px;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);
+  border-top:1px solid var(--border);display:flex;z-index:30;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.tabbar button{
+  flex:1;background:none;border:none;padding:12px 0 10px;font-family:inherit;
+  font-size:11px;color:var(--sub);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.tabbar button.on{color:var(--text);font-weight:800}
+.tabbar svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8}
+.tabbar button.on svg{stroke-width:2.6}
+
+/* import */
+.import{padding:20px 16px}
+.import h2{font-size:19px;font-weight:800;margin-bottom:6px}
+.import p.lead{font-size:13px;color:var(--sub);line-height:1.8;margin-bottom:20px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.field input[type=text]{
+  width:100%;padding:12px;border:1px solid #cfd9de;border-radius:6px;font-size:16px;font-family:inherit;
+}
+.photo-btn{
+  display:block;width:100%;border:2px dashed #cfd9de;border-radius:12px;
+  padding:26px;text-align:center;color:var(--sub);font-size:14px;background:var(--hover);
+  cursor:pointer;font-family:inherit;line-height:1.7;
+}
+#fileInput{display:none}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.thumbs img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border)}
+.go-btn{
+  width:100%;background:var(--text);color:#fff;border:none;border-radius:9999px;
+  padding:14px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:8px;
+}
+.go-btn:disabled{background:#9aa6ad}
+.status{font-size:13px;color:var(--sub);text-align:center;margin-top:12px;line-height:1.8;min-height:20px}
+.manage{margin-top:32px;border-top:1px solid var(--border);padding-top:16px}
+.manage h3{font-size:14px;font-weight:800;margin-bottom:10px}
+.manage .item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;gap:8px;
+}
+.manage .item .nm{font-weight:700}
+.manage .item .st{font-size:12px;color:var(--sub)}
+.manage .del{background:none;border:1px solid #fdd;color:#d33;border-radius:9999px;padding:5px 12px;font-size:12px;font-family:inherit;cursor:pointer}
+.manage .addpage{background:none;border:1px solid #cfe8fb;color:var(--blue);border-radius:9999px;padding:5px 12px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap}
+.manage .item .btns{display:flex;gap:6px;flex-shrink:0}
+.apikey-note{font-size:12px;color:var(--sub);line-height:1.6;margin-top:6px}
+
+.hidden{display:none}
+.newbar{
+  position:sticky;top:110px;z-index:15;text-align:center;pointer-events:none;height:0;
+}
+.newbar span{
+  display:inline-block;background:var(--blue);color:#fff;font-size:13px;font-weight:700;
+  padding:7px 16px;border-radius:9999px;box-shadow:0 4px 12px rgba(29,155,240,.4);
+  transform:translateY(-60px);opacity:0;transition:all .4s;
+}
+.newbar.show span{transform:translateY(0);opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ===== ホーム(タイムライン) ===== -->
+<div id="viewHome">
+  <div class="top">
+    <div class="row">
+      <h1>つんどくTL</h1>
+      <select class="booklet-sel" id="bookletSel" onchange="switchBooklet(this.value)"></select>
+    </div>
+    <div class="pbar"><div id="pbarFill" style="width:0%"></div></div>
+    <div class="prog" id="progLabel" style="padding-bottom:8px"></div>
+  </div>
+  <div class="newbar" id="newbar"><span id="newbarText"></span></div>
+  <div class="refresh-wrap"><button class="refresh-btn" id="refreshBtn" onclick="refresh()">↻ 更新して続きを読む</button></div>
+  <div id="timeline"></div>
+</div>
+
+<!-- ===== お気に入り ===== -->
+<div id="viewFav" class="hidden">
+  <div class="top"><div class="row"><h1>お気に入り</h1><span class="prog" id="favCount"></span></div></div>
+  <div id="favList"></div>
+</div>
+
+<!-- ===== 取り込み ===== -->
+<div id="viewImport" class="hidden">
+  <div class="top"><div class="row"><h1>冊子を取り込む</h1></div></div>
+  <div class="import">
+    <div class="field">
+      <label>Anthropic APIキー</label>
+      <input type="text" id="apiKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" oninput="localStorage.setItem('tsundoku-api-key', this.value.trim())">
+      <div class="apikey-note">この端末内(localStorage)にのみ保存され、コードやリポジトリには含まれません。</div>
+    </div>
+    <h2>写真を撮って、ポストにする</h2>
+    <p class="lead">紙の冊子・チラシ・会報などのページを撮影すると、テキスト化して140字ずつのポストに分割し、タイムラインに追加します。</p>
+    <div class="field">
+      <label>冊子の名前</label>
+      <input type="text" id="bkName" placeholder="例:図書館だより 7月号">
+    </div>
+    <div class="field">
+      <label>ページの写真(複数OK・読み順に選択)</label>
+      <button class="photo-btn" onclick="document.getElementById('fileInput').click()">
+        📷 写真を撮る / 選ぶ<br><small>ページの順番どおりに選んでください</small>
+      </button>
+      <input type="file" id="fileInput" accept="image/*" multiple onchange="pickFiles(this.files)">
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+    <button class="go-btn" id="goBtn" onclick="importBooklet()" disabled>読み取ってタイムラインに追加</button>
+    <div class="status" id="status"></div>
+
+    <div class="manage">
+      <h3>取り込み済みの冊子</h3>
+      <div id="manageList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== タブバー ===== -->
+<div class="tabbar">
+  <button id="tabHome" class="on" onclick="showView('Home')">
+    <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>ホーム
+  </button>
+  <button id="tabFav" onclick="showView('Fav')">
+    <svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.7-9.3-9C1.4 8.2 3.2 5 6.5 5c2 0 3.5 1.2 4.2 2.6l1.3 2.4 1.3-2.4C14 6.2 15.5 5 17.5 5c3.3 0 5.1 3.2 3.8 6.5-1.8 4.3-9.3 9-9.3 9z" transform="scale(.92) translate(1,0)"/></svg>お気に入り
+  </button>
+  <button id="tabImport" onclick="showView('Import')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>取り込む
+  </button>
+</div>
+
+<script>
+const COLORS=['#1d9bf0','#e0245e','#794bc4','#f45d22','#17bf63','#c98600','#0c7abf'];
+let state={booklets:[],currentId:null};
+let picked=[]; // {dataUrl, mediaType}
+
+/* ---------- storage ---------- */
+function loadState(){
+  try{
+    const raw=localStorage.getItem('tsundoku-tl');
+    if(raw)state=JSON.parse(raw);
+  }catch(e){/* 初回 */}
+}
+function saveState(){
+  try{localStorage.setItem('tsundoku-tl',JSON.stringify(state));}
+  catch(e){console.error('保存に失敗',e);}
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function cur(){return state.booklets.find(b=>b.id===state.currentId)||null;}
+
+/* ---------- view切替 ---------- */
+function showView(v){
+  ['Home','Fav','Import'].forEach(x=>{
+    document.getElementById('view'+x).classList.toggle('hidden',x!==v);
+    document.getElementById('tab'+x).classList.toggle('on',x===v);
+  });
+  if(v==='Home')renderHome();
+  if(v==='Fav')renderFav();
+  if(v==='Import')renderManage();
+  window.scrollTo(0,0);
+}
+
+/* ---------- ホーム ---------- */
+function renderHome(){
+  const sel=document.getElementById('bookletSel');
+  sel.innerHTML=state.booklets.map(b=>`<option value="${b.id}" ${b.id===state.currentId?'selected':''}>${esc(b.name)}</option>`).join('');
+  const b=cur();
+  const tl=document.getElementById('timeline');
+  if(!b){
+    document.getElementById('progLabel').textContent='';
+    document.getElementById('pbarFill').style.width='0%';
+    document.getElementById('refreshBtn').style.display='none';
+    tl.innerHTML=`<div class="empty"><b>タイムラインはまだ空です</b>「取り込む」タブから、読みたい冊子を写真で撮って追加しましょう。</div>`;
+    return;
+  }
+  document.getElementById('refreshBtn').style.display='block';
+  updateProg(b);
+  // released分を新しい順(あとに解放されたものが上)に表示。同一バッチ内は読み順。
+  let html='';
+  const batches=b.batches||[];
+  for(let i=batches.length-1;i>=0;i--){
+    const [s,e]=batches[i];
+    for(let k=s;k<e;k++)html+=postHtml(b,k,false);
+  }
+  if(b.released>=b.chunks.length&&b.chunks.length>0){
+    html=`<div class="done-post">🎉 <b>「${esc(b.name)}」読了!</b><br>ぜんぶ読み切りました。おつかれさま。<br>次の冊子を取り込みましょう。</div>`+html;
+  }
+  tl.innerHTML=html;
+}
+function updateProg(b){
+  const pct=b.chunks.length?Math.round(b.released/b.chunks.length*100):0;
+  document.getElementById('pbarFill').style.width=pct+'%';
+  document.getElementById('progLabel').textContent=`${b.released} / ${b.chunks.length} ポスト読了(${pct}%)・♡${b.likes.length}`;
+}
+function postHtml(b,idx,isNew){
+  const liked=b.likes.includes(idx);
+  return `<div class="post ${isNew?'new':''}" id="post-${b.id}-${idx}">
+    <div class="avatar" style="background:${b.color}">${esc(b.name.charAt(0))}</div>
+    <div class="body">
+      <div class="head"><b>${esc(b.name)}</b> <span>・ ${idx+1}/${b.chunks.length}</span></div>
+      <div class="text">${esc(b.chunks[idx])}</div>
+      <div class="actions">
+        <button class="act ${liked?'liked':''}" onclick="toggleLike('${b.id}',${idx},this)">
+          <svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.7-9.3-9C1.4 8.2 3.2 5 6.5 5c2 0 3.5 1.2 4.2 2.6l1.3 2.4 1.3-2.4C14 6.2 15.5 5 17.5 5c3.3 0 5.1 3.2 3.8 6.5-1.8 4.3-9.3 9-9.3 9z"/></svg>
+          <span>${liked?'お気に入り済':'お気に入り'}</span>
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+async function refresh(){
+  const b=cur();if(!b)return;
+  const btn=document.getElementById('refreshBtn');
+  btn.disabled=true;btn.textContent='読み込み中…';
+  await new Promise(r=>setTimeout(r,450)); // X風の「間」
+  const remain=b.chunks.length-b.released;
+  if(remain<=0){
+    btn.disabled=false;btn.textContent='↻ 更新して続きを読む';
+    showNewbar('続きはもうありません 📚');
+    renderHome();
+    return;
+  }
+  const n=Math.min(remain,3+Math.floor(Math.random()*3)); // 3〜5ポスト
+  const start=b.released;
+  b.released+=n;
+  b.batches=b.batches||[];
+  b.batches.push([start,b.released]);
+  saveState();
+  // 新バッチを上にprepend(バッチ内は読み順)
+  const tl=document.getElementById('timeline');
+  let html='';
+  for(let k=start;k<b.released;k++)html+=postHtml(b,k,true);
+  if(b.released>=b.chunks.length){
+    html=`<div class="done-post">🎉 <b>「${esc(b.name)}」読了!</b><br>ぜんぶ読み切りました。おつかれさま。<br>次の冊子を取り込みましょう。</div>`+html;
+  }
+  tl.insertAdjacentHTML('afterbegin',html);
+  updateProg(b);
+  showNewbar(`${n}件の新しいポスト`);
+  btn.disabled=false;btn.textContent='↻ 更新して続きを読む';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function showNewbar(t){
+  const nb=document.getElementById('newbar');
+  document.getElementById('newbarText').textContent=t;
+  nb.classList.add('show');
+  setTimeout(()=>nb.classList.remove('show'),2200);
+}
+function switchBooklet(id){state.currentId=id;saveState();renderHome();}
+function toggleLike(bid,idx,el){
+  const b=state.booklets.find(x=>x.id===bid);if(!b)return;
+  const i=b.likes.indexOf(idx);
+  if(i>=0)b.likes.splice(i,1);else b.likes.push(idx);
+  saveState();
+  const liked=b.likes.includes(idx);
+  el.classList.toggle('liked',liked);
+  el.querySelector('span').textContent=liked?'お気に入り済':'お気に入り';
+  if(state.currentId===bid)updateProg(b);
+}
+
+/* ---------- お気に入り ---------- */
+function renderFav(){
+  let html='',count=0;
+  for(const b of state.booklets){
+    for(const idx of [...b.likes].sort((a,c)=>a-c)){
+      html+=postHtml(b,idx,false);count++;
+    }
+  }
+  document.getElementById('favCount').textContent=count?`${count}件`:'';
+  document.getElementById('favList').innerHTML=html||`<div class="empty"><b>まだお気に入りがありません</b>タイムラインで♡を押すと、ここに貯まります。<br>ブログのネタ帳としてどうぞ。</div>`;
+}
+
+/* ---------- 取り込み ---------- */
+function pickFiles(files){
+  picked=[];
+  const thumbs=document.getElementById('thumbs');
+  thumbs.innerHTML='';
+  const arr=Array.from(files);
+  let loaded=0;
+  arr.forEach((f,i)=>{
+    const img=new Image();
+    const url=URL.createObjectURL(f);
+    img.onload=()=>{
+      // 長辺1400pxにリサイズしてJPEG化(HEICもここでJPEGになる)
+      const max=1400;
+      const scale=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      picked[i]={dataUrl:c.toDataURL('image/jpeg',0.85)};
+      URL.revokeObjectURL(url);
+      loaded++;
+      if(loaded===arr.length){
+        thumbs.innerHTML=picked.map(p=>`<img src="${p.dataUrl}">`).join('');
+        document.getElementById('goBtn').disabled=false;
+      }
+    };
+    img.onerror=()=>{
+      loaded++;
+      document.getElementById('status').textContent='読み込めない画像がありました(スクリーンショット等のJPEG/PNGでお試しください)';
+    };
+    img.src=url;
+  });
+  if(!arr.length)document.getElementById('goBtn').disabled=true;
+}
+
+const OCR_PROMPT='この画像は紙の冊子のページです。本文テキストを読み順どおりに正確に書き起こしてください。縦書きの場合は右の段から左の段へ読む順序で書き起こしてください。ページ番号・ヘッダー・フッター・写真キャプションの重複は除外。見出しも本文の流れに含めてください。複数の記事がある場合は記事ごとにまとめ、記事の切れ目には「【見出し】」という行を1行だけ入れてください(見出しの直後に本文を続けてください)。書き起こした文章のみを出力し、前置きや説明は一切書かないでください。文字が読み取れない場合のみ「(判読不能)」と書いてください。';
+
+function getApiKey(){return (localStorage.getItem('tsundoku-api-key')||'').trim();}
+
+/* dataUrl群をOCRして全文テキストを返す。onProgress(i,n)で進捗通知 */
+async function ocrPages(dataUrls,onProgress){
+  const apiKey=getApiKey();
+  if(!apiKey)throw new Error('APIキーが未設定です。上の「Anthropic APIキー」欄に入力してください。');
+  let fullText='';
+  for(let i=0;i<dataUrls.length;i++){
+    if(onProgress)onProgress(i+1,dataUrls.length);
+    const base64=dataUrls[i].split(',')[1];
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:4000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:base64}},
+          {type:'text',text:OCR_PROMPT}
+        ]}]
+      })
+    });
+    const data=await res.json();
+    if(data.error)throw new Error(data.error.message||'APIエラー');
+    const text=(data.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n');
+    fullText+=text+'\n';
+  }
+  return fullText;
+}
+
+/* 選んだ画像ファイルをリサイズ済みdataURLに変換 */
+function loadImageAsDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const max=1400;
+      const scale=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg',0.85));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('画像を読み込めませんでした'));};
+    img.src=url;
+  });
+}
+
+async function importBooklet(){
+  const name=document.getElementById('bkName').value.trim();
+  const status=document.getElementById('status');
+  if(!name){status.textContent='冊子の名前を入れてください';return;}
+  if(!picked.length){status.textContent='写真を選んでください';return;}
+  if(!getApiKey()){status.textContent='上の「Anthropic APIキー」欄にキーを入力してから取り込んでください。';return;}
+  const btn=document.getElementById('goBtn');
+  btn.disabled=true;
+  let fullText='';
+  try{
+    fullText=await ocrPages(picked.map(p=>p.dataUrl),(i,n)=>{
+      status.textContent=`${i} / ${n} 枚目を読み取り中…(少し時間がかかります)`;
+    });
+  }catch(e){
+    status.textContent='読み取りに失敗しました:'+e.message+' / もう一度お試しください';
+    btn.disabled=false;
+    return;
+  }
+  const chunks=splitChunks(fullText);
+  if(!chunks.length){
+    status.textContent='テキストを読み取れませんでした。明るい場所で文字がはっきり写るよう撮り直してみてください。';
+    btn.disabled=false;return;
+  }
+  const bk={
+    id:'b'+Date.now(),
+    name,
+    color:COLORS[state.booklets.length%COLORS.length],
+    chunks,released:0,batches:[],likes:[]
+  };
+  state.booklets.push(bk);
+  state.currentId=bk.id;
+  saveState();
+  status.textContent='';
+  document.getElementById('bkName').value='';
+  document.getElementById('thumbs').innerHTML='';
+  document.getElementById('fileInput').value='';
+  picked=[];
+  btn.disabled=true;
+  showView('Home');
+  showNewbar(`「${name}」を追加!更新して読み始めよう`);
+}
+
+/* 文の区切りで140字前後に分割(【見出し】行は独立した1ポストにする) */
+function splitChunks(text){
+  const clean=text.replace(/\r/g,'').replace(/[ \t]+/g,' ').trim();
+  if(!clean)return[];
+  const parts=clean.split(/(【[^\n】]{1,40}】)/).map(s=>s.trim()).filter(Boolean);
+  const chunks=[];
+  for(const part of parts){
+    if(/^【[^\n】]{1,40}】$/.test(part))chunks.push(part);
+    else chunks.push(...splitPlainText(part));
+  }
+  return chunks;
+}
+function splitPlainText(text){
+  const clean=text.replace(/\n{2,}/g,'\n').trim();
+  if(!clean)return[];
+  // 文単位に分解(。!? と改行で区切る)
+  const sentences=clean.split(/(?<=[。!?!?])|\n/).map(s=>s.trim()).filter(Boolean);
+  const chunks=[];let buf='';
+  for(const s of sentences){
+    if(s.length>200){ // 異常に長い文は強制分割
+      if(buf){chunks.push(buf);buf='';}
+      for(let i=0;i<s.length;i+=140)chunks.push(s.slice(i,i+140));
+      continue;
+    }
+    if((buf+s).length>140&&buf){chunks.push(buf);buf=s;}
+    else buf+=(buf?'\n':'')+s;
+  }
+  if(buf)chunks.push(buf);
+  return chunks;
+}
+
+/* ---------- 冊子の管理 ---------- */
+function renderManage(){
+  const el=document.getElementById('manageList');
+  if(!state.booklets.length){el.innerHTML='<div style="font-size:13px;color:var(--sub);padding:8px 0">まだありません</div>';return;}
+  el.innerHTML=state.booklets.map(b=>`
+    <div class="item">
+      <div>
+        <div class="nm"><span style="color:${b.color}">●</span> ${esc(b.name)}</div>
+        <div class="st" id="mst-${b.id}">${b.released}/${b.chunks.length} 読了・♡${b.likes.length}</div>
+      </div>
+      <div class="btns">
+        <button class="addpage" onclick="addPages('${b.id}')">＋ページ追加</button>
+        <button class="del" onclick="delBooklet('${b.id}')">削除</button>
+      </div>
+    </div>`).join('');
+}
+function delBooklet(id){
+  const b=state.booklets.find(x=>x.id===id);
+  if(!confirm(`「${b.name}」を削除しますか?(お気に入りも消えます)`))return;
+  state.booklets=state.booklets.filter(x=>x.id!==id);
+  if(state.currentId===id)state.currentId=state.booklets.length?state.booklets[0].id:null;
+  saveState();
+  renderManage();
+}
+
+/* 既存の冊子に写真を追記して読み取り、末尾に連結する */
+function addPages(id){
+  if(!getApiKey()){
+    alert('上部「Anthropic APIキー」欄にキーを入力してから追加してください。');
+    return;
+  }
+  const input=document.createElement('input');
+  input.type='file';input.accept='image/*';input.multiple=true;input.style.display='none';
+  document.body.appendChild(input);
+  input.onchange=async()=>{
+    const files=Array.from(input.files);
+    document.body.removeChild(input);
+    if(!files.length)return;
+    const b=state.booklets.find(x=>x.id===id);if(!b)return;
+    const setSt=t=>{const el=document.getElementById('mst-'+id);if(el)el.textContent=t;};
+    try{
+      setSt('画像を準備中…');
+      const dataUrls=[];
+      for(const f of files)dataUrls.push(await loadImageAsDataUrl(f));
+      const fullText=await ocrPages(dataUrls,(i,n)=>setSt(`${i}/${n}枚目を読み取り中…`));
+      const newChunks=splitChunks(fullText);
+      b.chunks=b.chunks.concat(newChunks);
+      saveState();
+      renderManage();
+      renderHome();
+    }catch(e){
+      alert('読み取りに失敗しました: '+e.message);
+      renderManage();
+    }
+  };
+  input.click();
+}
+
+/* ---------- init ---------- */
+(()=>{
+  loadState();
+  if(!state.currentId&&state.booklets.length)state.currentId=state.booklets[0].id;
+  const apiKeyEl=document.getElementById('apiKey');
+  if(apiKeyEl)apiKeyEl.value=getApiKey();
+  renderHome();
+})();
+</script>
+</body>
+</html>
