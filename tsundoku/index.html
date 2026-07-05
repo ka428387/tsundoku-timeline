@@ -135,6 +135,18 @@ select.booklet-sel{
 .manage .item .btns{display:flex;gap:6px;flex-shrink:0}
 .apikey-note{font-size:12px;color:var(--sub);line-height:1.6;margin-top:6px}
 
+/* profile */
+.back-btn{background:none;border:none;padding:4px;margin-right:8px;color:var(--text);cursor:pointer;display:flex;align-items:center;flex-shrink:0}
+.back-btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2}
+.profile-head{display:flex;align-items:center;gap:14px;padding:18px 16px;border-bottom:1px solid var(--border)}
+.profile-head .avatar-lg{
+  width:64px;height:64px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:26px;
+}
+.profile-head .nm{font-size:18px;font-weight:800;margin-bottom:4px}
+.profile-head .meta{font-size:13px;color:var(--sub)}
+.clickable{cursor:pointer}
+
 .hidden{display:none}
 .newbar{
   position:sticky;top:110px;z-index:15;text-align:center;pointer-events:none;height:0;
@@ -168,6 +180,20 @@ select.booklet-sel{
 <div id="viewFav" class="hidden">
   <div class="top"><div class="row"><h1>お気に入り</h1><span class="prog" id="favCount"></span></div></div>
   <div id="favList"></div>
+</div>
+
+<!-- ===== 冊子プロフィール ===== -->
+<div id="viewProfile" class="hidden">
+  <div class="top">
+    <div class="row">
+      <button class="back-btn" onclick="showView(lastMainView)" aria-label="戻る">
+        <svg viewBox="0 0 24 24"><path d="M15 4l-8 8 8 8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h1 id="profileName" style="flex:1"></h1>
+    </div>
+  </div>
+  <div class="profile-head" id="profileHead"></div>
+  <div id="profileList"></div>
 </div>
 
 <!-- ===== 取り込み ===== -->
@@ -220,6 +246,7 @@ select.booklet-sel{
 const COLORS=['#1d9bf0','#e0245e','#794bc4','#f45d22','#17bf63','#c98600','#0c7abf'];
 let state={booklets:[],currentId:null};
 let picked=[]; // {dataUrl, mediaType}
+let lastMainView='Home'; // Profileから戻る先(Home/Fav)
 
 /* ---------- storage ---------- */
 function loadState(){
@@ -236,14 +263,18 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;',
 function cur(){return state.booklets.find(b=>b.id===state.currentId)||null;}
 
 /* ---------- view切替 ---------- */
-function showView(v){
-  ['Home','Fav','Import'].forEach(x=>{
+function showView(v,arg){
+  if(v==='Home'||v==='Fav')lastMainView=v;
+  ['Home','Fav','Import','Profile'].forEach(x=>{
     document.getElementById('view'+x).classList.toggle('hidden',x!==v);
+  });
+  ['Home','Fav','Import'].forEach(x=>{
     document.getElementById('tab'+x).classList.toggle('on',x===v);
   });
   if(v==='Home')renderHome();
   if(v==='Fav')renderFav();
   if(v==='Import')renderManage();
+  if(v==='Profile')renderProfile(arg);
   window.scrollTo(0,0);
 }
 
@@ -282,9 +313,9 @@ function updateProg(b){
 function postHtml(b,idx,isNew){
   const liked=b.likes.includes(idx);
   return `<div class="post ${isNew?'new':''}" id="post-${b.id}-${idx}">
-    <div class="avatar" style="background:${b.color}">${esc(b.name.charAt(0))}</div>
+    <div class="avatar clickable" style="background:${b.color}" onclick="showView('Profile','${b.id}')">${esc(b.name.charAt(0))}</div>
     <div class="body">
-      <div class="head"><b>${esc(b.name)}</b> <span>・ ${idx+1}/${b.chunks.length}</span></div>
+      <div class="head"><b class="clickable" onclick="showView('Profile','${b.id}')">${esc(b.name)}</b> <span>・ ${idx+1}/${b.chunks.length}</span></div>
       <div class="text">${esc(b.chunks[idx])}</div>
       <div class="actions">
         <button class="act ${liked?'liked':''}" onclick="toggleLike('${b.id}',${idx},this)">
@@ -354,6 +385,30 @@ function renderFav(){
   }
   document.getElementById('favCount').textContent=count?`${count}件`:'';
   document.getElementById('favList').innerHTML=html||`<div class="empty"><b>まだお気に入りがありません</b>タイムラインで♡を押すと、ここに貯まります。<br>ブログのネタ帳としてどうぞ。</div>`;
+}
+
+/* ---------- 冊子プロフィール ---------- */
+function renderProfile(id){
+  const b=state.booklets.find(x=>x.id===id);
+  const head=document.getElementById('profileHead');
+  const list=document.getElementById('profileList');
+  if(!b){
+    document.getElementById('profileName').textContent='';
+    head.innerHTML='';
+    list.innerHTML=`<div class="empty"><b>見つかりません</b>この冊子は削除された可能性があります。</div>`;
+    return;
+  }
+  document.getElementById('profileName').textContent=b.name;
+  const pct=b.chunks.length?Math.round(b.released/b.chunks.length*100):0;
+  head.innerHTML=`
+    <div class="avatar-lg" style="background:${b.color}">${esc(b.name.charAt(0))}</div>
+    <div>
+      <div class="nm">${esc(b.name)}</div>
+      <div class="meta">${b.released} / ${b.chunks.length} ポスト読了(${pct}%)・♡${b.likes.length}</div>
+    </div>`;
+  let html='';
+  for(let idx=0;idx<b.released;idx++)html+=postHtml(b,idx,false);
+  list.innerHTML=html||`<div class="empty"><b>まだ読んだポストがありません</b>ホームで更新すると、ここに読んだ分だけ並びます。</div>`;
 }
 
 /* ---------- 取り込み ---------- */
